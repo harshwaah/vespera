@@ -44,7 +44,7 @@ When two hands are present, Vespera isolates the bounding space between them. Yo
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/vespera.git
+git clone https://github.com/harshwaah/vespera.git
 
 # Enter the directory
 cd vespera
