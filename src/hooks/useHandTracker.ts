@@ -4,8 +4,7 @@ import type { HandData, BoxCoords } from '../types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** MediaPipe landmark index for the middle-finger MCP joint */
-const MCP_INDEX = 9;
+// Removed unused MCP_INDEX
 
 /** Euclidean distance threshold (normalised) that triggers a pinch */
 const PINCH_THRESHOLD = 0.05;
@@ -14,13 +13,14 @@ const PINCH_THRESHOLD = 0.05;
 const PINCH_COOLDOWN_MS = 1200;
 
 /** Total number of shader effects (effectIndex cycles 0 → N_EFFECTS-1) */
-const N_EFFECTS = 7;
+const N_EFFECTS = 8;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface UseHandTrackerArgs {
   videoRef: React.MutableRefObject<HTMLVideoElement | null>;
   boxRef: React.MutableRefObject<BoxCoords>;
+  quadRef: React.MutableRefObject<number[]>;
   handsRef: React.MutableRefObject<HandData[]>;
   pinchCooldownRef: React.MutableRefObject<boolean>;
   setVideoReady: (v: boolean) => void;
@@ -56,6 +56,7 @@ function dist2D(
 export function useHandTracker({
   videoRef,
   boxRef,
+  quadRef,
   handsRef,
   pinchCooldownRef,
   setVideoReady,
@@ -193,30 +194,45 @@ export function useHandTracker({
 
           if (isPinched) {
             boxRef.current = [0, 0, 0, 0];
+            quadRef.current = [0,0, 0,0, 0,0, 0,0];
             if (!pinchCooldownRef.current) {
               setEffectIndex((prev) => (prev + 1) % N_EFFECTS);
               pinchCooldownRef.current = true;
               setTimeout(() => { pinchCooldownRef.current = false; }, PINCH_COOLDOWN_MS);
             }
           } else {
-            // ── 3c. Bounding-box computation ──────────────────────────────
+            // ── 3c. Bounding-box and Quad computation ──────────────────────────────
             if (hands.length === 2) {
-              const lm0 = hands[0].landmarks[MCP_INDEX];
-              const lm1 = hands[1].landmarks[MCP_INDEX];
+              const getP = (hand: HandData, idx: number) => {
+                return { x: hand.landmarks[idx].x, y: 1.0 - hand.landmarks[idx].y };
+              };
 
-              // Fix inverted axes: WebGL Y is inverted vs HTML Canvas.
-              // WebGL expects 0=bottom, 1=top. MediaPipe gives 0=top, 1=bottom.
-              const x0 = lm0.x;
-              const y0 = 1.0 - lm0.y;
-              const x1 = lm1.x;
-              const y1 = 1.0 - lm1.y;
+              const h0_x = hands[0].landmarks[0].x;
+              const h1_x = hands[1].landmarks[0].x;
+              // Because the screen is mirrored, a LARGER x value means it's visually on the LEFT side of the screen.
+              const leftHand = h0_x > h1_x ? hands[0] : hands[1];
+              const rightHand = h0_x > h1_x ? hands[1] : hands[0];
 
-              const distance = dist2D(x0, y0, x1, y1);
+              const TL = getP(leftHand, 8); // Index tip
+              const TR = getP(rightHand, 8);
+              const BL = getP(leftHand, 4); // Thumb tip
+              const BR = getP(rightHand, 4);
 
-              const centerX   = (x0 + x1) / 2;
-              const centerY   = (y0 + y1) / 2;
+              quadRef.current = [TL.x, TL.y, TR.x, TR.y, BL.x, BL.y, BR.x, BR.y];
+
+              const distance = dist2D(TL.x, TL.y, TR.x, TR.y);
+              // For uBox, we want min/max of the quad. We must ensure x0 < x1 for uBox,
+              // but since x is inverted in shader, we just use the bounds.
+              const minX = Math.min(TL.x, TR.x, BL.x, BR.x);
+              const maxX = Math.max(TL.x, TR.x, BL.x, BR.x);
+              const minY = Math.min(TL.y, TR.y, BL.y, BR.y);
+              const maxY = Math.max(TL.y, TR.y, BL.y, BR.y);
+
+              // Single frame mode wants a nice generic padded portal box
+              const centerX = (minX + maxX) / 2;
+              const centerY = (minY + maxY) / 2;
               const boxWidth  = distance * 1.3;
-              const boxHeight = boxWidth  * 0.75;
+              const boxHeight = boxWidth * 0.75;
 
               boxRef.current = [
                 clamp01(centerX - boxWidth  / 2),
@@ -226,6 +242,7 @@ export function useHandTracker({
               ];
             } else {
               boxRef.current = [0, 0, 0, 0];
+              quadRef.current = [0,0, 0,0, 0,0, 0,0];
             }
           }
         }
@@ -261,6 +278,7 @@ export function useHandTracker({
   }, [
     videoRef,
     boxRef,
+    quadRef,
     handsRef,
     pinchCooldownRef,
     setVideoReady,

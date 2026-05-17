@@ -8,13 +8,14 @@ import type { BoxCoords } from '../types';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const EFFECT_NAMES = [
-  'Burning Inferno',
-  'Neon Silhouette',
-  'Thermal Vision',
-  'Matrix Dots',
-  'Glitch Signal',
-  'Neon Edges',
+  'Inferno',
+  'Neon',
+  'Thermal',
+  'Matrix',
+  'Glitch',
+  'Edges',
   'Constellation',
+  'Glass',
 ] as const;
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -22,18 +23,22 @@ const EFFECT_NAMES = [
 interface EffectsCanvasProps {
   videoRef:    React.MutableRefObject<HTMLVideoElement | null>;
   boxRef:      React.MutableRefObject<BoxCoords>;
+  quadRef:     React.MutableRefObject<number[]>;
   effectIndex: number;
+  isTripleMode?: boolean;
 }
 
 interface ShaderPlaneProps {
   videoRef:    React.MutableRefObject<HTMLVideoElement | null>;
   boxRef:      React.MutableRefObject<BoxCoords>;
+  quadRef:     React.MutableRefObject<number[]>;
   effectIndex: number;
+  isTripleMode?: boolean;
 }
 
 // ─── ShaderPlane — lives inside <Canvas> ─────────────────────────────────────
 
-function ShaderPlane({ videoRef, boxRef, effectIndex }: ShaderPlaneProps) {
+function ShaderPlane({ videoRef, boxRef, quadRef, effectIndex, isTripleMode = false }: ShaderPlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   
   // Create texture imperatively, update every frame
@@ -67,11 +72,16 @@ function ShaderPlane({ videoRef, boxRef, effectIndex }: ShaderPlaneProps) {
     // Update other uniforms
     const mat = mesh.material as THREE.ShaderMaterial;
     if (mat.uniforms) {
+      const quad = quadRef.current;
+      mat.uniforms.uQuadTop.value.set(quad[0], quad[1], quad[2], quad[3]);
+      mat.uniforms.uQuadBottom.value.set(quad[4], quad[5], quad[6], quad[7]);
+
       mat.uniforms.uTime.value += gl.info.render.frame ? 0.016 : 0.016;
       mat.uniforms.uBox.value.set(...boxRef.current);
       mat.uniforms.uEffect.value = THREE.MathUtils.lerp(
         mat.uniforms.uEffect.value, effectIndex, 0.06
       );
+      mat.uniforms.uMode.value = isTripleMode ? 1.0 : 0.0;
       mat.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
     }
   });
@@ -80,7 +90,10 @@ function ShaderPlane({ videoRef, boxRef, effectIndex }: ShaderPlaneProps) {
     uTexture: { value: null },
     uTime: { value: 0 },
     uBox: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uQuadTop: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uQuadBottom: { value: new THREE.Vector4(0, 0, 0, 0) },
     uEffect: { value: 0.0 },
+    uMode: { value: 0.0 },
     uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
   }), []);
 
@@ -132,7 +145,7 @@ function EffectHUD({ effectIndex }: { effectIndex: number }) {
 
 // ─── Exported component ───────────────────────────────────────────────────────
 
-export default function EffectsCanvas({ videoRef, boxRef, effectIndex }: EffectsCanvasProps) {
+export default function EffectsCanvas({ videoRef, boxRef, quadRef, effectIndex, isTripleMode = false }: EffectsCanvasProps) {
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <Canvas
@@ -146,7 +159,7 @@ export default function EffectsCanvas({ videoRef, boxRef, effectIndex }: Effects
         }}
         dpr={Math.min(window.devicePixelRatio, 2)}
       >
-        <ShaderPlane videoRef={videoRef} boxRef={boxRef} effectIndex={effectIndex} />
+        <ShaderPlane videoRef={videoRef} boxRef={boxRef} quadRef={quadRef} effectIndex={effectIndex} isTripleMode={isTripleMode} />
       </Canvas>
 
       <EffectHUD effectIndex={effectIndex} />

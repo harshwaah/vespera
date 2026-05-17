@@ -15,9 +15,11 @@ export default function App() {
   const [errorMsg,      setErrorMsg]      = useState<string | null>(null);
   const [effectIndex,   setEffectIndex]   = useState(0);
   const [showHelp,      setShowHelp]      = useState(true);
+  const [isTripleMode,  setIsTripleMode]  = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const boxRef          = useRef<BoxCoords>([0, 0, 0, 0]);
+  const quadRef         = useRef<number[]>([0,0, 0,0, 0,0, 0,0]);
   const handsRef        = useRef<HandData[]>([]);
   const videoRef        = useRef<HTMLVideoElement>(null);
   const pinchCooldownRef = useRef<boolean>(false);
@@ -26,6 +28,7 @@ export default function App() {
   const { initTracker } = useHandTracker({
     videoRef,
     boxRef,
+    quadRef,
     handsRef,
     pinchCooldownRef,
     setVideoReady,
@@ -109,7 +112,7 @@ export default function App() {
             className="font-mono text-xs tracking-widest uppercase"
             style={{ color: 'rgba(255,255,255,0.40)' }}
           >
-            {videoReady ? 'Loading AI models…' : 'Initializing camera…'}
+            {videoReady ? 'Loading AI models' : 'Initializing camera'}
           </p>
         </div>
       )}
@@ -157,7 +160,9 @@ export default function App() {
           <EffectsCanvas
             videoRef={videoRef}
             boxRef={boxRef}
+            quadRef={quadRef}
             effectIndex={effectIndex}
+            isTripleMode={isTripleMode}
           />
           <OverlayCanvas
             handsRef={handsRef}
@@ -197,28 +202,58 @@ export default function App() {
                   whiteSpace: 'nowrap',
                 }}
               >
-                <span>Raise palms to reveal the rift</span>
+                <span>Raise your hands</span>
                 <span style={{ margin: '0 12px', opacity: 0.2 }}>|</span>
-                <span>Pinch index and thumb to shift reality</span>
+                <span>Pinch to switch effects</span>
               </div>
             )}
-            <button
-              onClick={() => setShowHelp(!showHelp)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'rgba(255, 255, 255, 0.25)',
-                fontSize: '10px',
-                cursor: 'pointer',
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                transition: 'color 0.2s ease',
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
-              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
-            >
-              [{showHelp ? 'HIDE' : 'HELP'}]
-            </button>
+            
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <button
+                onClick={() => setIsTripleMode(!isTripleMode)}
+                style={{
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: isTripleMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.5)',
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  fontSize: '10px',
+                  cursor: 'pointer',
+                  letterSpacing: '0.15em',
+                  textTransform: 'uppercase',
+                  backdropFilter: 'blur(4px)',
+                  transition: 'all 0.3s ease',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.color = 'rgba(255, 255, 255, 1)';
+                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.4)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.color = isTripleMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.5)';
+                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.2)';
+                }}
+              >
+                {isTripleMode ? 'Spotlight' : '3 Frames'}
+              </button>
+
+              <button
+                onClick={() => setShowHelp(!showHelp)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'rgba(255, 255, 255, 0.25)',
+                  fontSize: '10px',
+                  cursor: 'pointer',
+                  letterSpacing: '0.15em',
+                  textTransform: 'uppercase',
+                  transition: 'color 0.2s ease',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
+              >
+                [{showHelp ? 'HIDE' : 'INFO'}]
+              </button>
+            </div>
           </div>
         </>
       )}

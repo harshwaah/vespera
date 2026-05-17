@@ -2,8 +2,11 @@
 // ─── Uniforms ──────────────────────────────────────────────────────────────────
 uniform sampler2D uTexture;
 uniform float     uTime;
-uniform vec4      uBox;        // xMin, yMin, xMax, yMax  (normalised 0-1)
-uniform float     uEffect;     // 0.0 – 6.0
+uniform vec4      uBox;        // Fallback or not used
+uniform vec4      uQuadTop;    // TL.x, TL.y, TR.x, TR.y
+uniform vec4      uQuadBottom; // BL.x, BL.y, BR.x, BR.y
+uniform float     uEffect;     // 0.0 – 7.0
+uniform float     uMode;       // 0.0 = single, 1.0 = triple
 uniform vec2      uResolution;
 
 // ─── Varyings ─────────────────────────────────────────────────────────────────
@@ -12,6 +15,18 @@ varying vec2 vUv;
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════════
+
+float getEdgeY(vec2 p1, vec2 p2, float x) {
+  if (abs(p1.x - p2.x) < 0.0001) return mix(p1.y, p2.y, 0.5);
+  float t = (x - p1.x) / (p2.x - p1.x);
+  return mix(p1.y, p2.y, t);
+}
+
+float getEdgeX(vec2 p1, vec2 p2, float y) {
+  if (abs(p1.y - p2.y) < 0.0001) return mix(p1.x, p2.x, 0.5);
+  float t = (y - p1.y) / (p2.y - p1.y);
+  return mix(p1.x, p2.x, t);
+}
 
 // ── Simplex 2-D noise ─────────────────────────────────────────────────────────
 vec2 mod289_2(vec2 x)  { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -140,45 +155,90 @@ void main() {
   float lum     = getLuma(base.rgb);
   float dispLum = getLuma(dispSample.rgb);
 
-  // ── STEP 4 — Outside-box: desaturated grayscale passthrough ─────────────────
-  bool inBox = uBox.z > 0.001
-            && uv.x > uBox.x && uv.x < uBox.z
-            && uv.y > uBox.y && uv.y < uBox.w;
+  // ── STEP 4 — Compute Bounds ──────────────────────────────────────────────────
+  bool inBox = false;
+  float sliceY = 0.0;
+  
+  vec2 TL = uQuadTop.xy;
+  vec2 TR = uQuadTop.zw;
+  vec2 BL = uQuadBottom.xy;
+  vec2 BR = uQuadBottom.zw;
+
+  float topY = getEdgeY(TL, TR, uv.x);
+  float bottomY = getEdgeY(BL, BR, uv.x);
+  float leftX = getEdgeX(TL, BL, uv.y);
+  float rightX = getEdgeX(TR, BR, uv.y);
+
+  if (uMode > 0.5) {
+    float minX = min(leftX, rightX);
+    float maxX = max(leftX, rightX);
+    
+    inBox = (uv.y > bottomY && uv.y < topY && uv.x > minX && uv.x < maxX);
+    
+    // Guard against invalid quad (e.g., when hands are not detected)
+    if (abs(TR.x - TL.x) < 0.001 && abs(BR.x - BL.x) < 0.001) {
+      inBox = false;
+    }
+    
+    if (topY > bottomY) {
+      sliceY = (uv.y - bottomY) / (topY - bottomY);
+    }
+  } else {
+    // Original single-frame logic
+    inBox = uBox.z > 0.001
+         && uv.x > uBox.x && uv.x < uBox.z
+         && uv.y > uBox.y && uv.y < uBox.w;
+  }
 
   if (!inBox) {
     float gray = getLuma(base.rgb);
-    // Slightly darken and fully desaturate outside the portal
     vec3 outside = vec3(gray) * 0.75;
     gl_FragColor = vec4(outside, 1.0);
     return;
   }
 
-  // ── STEP 5 — Silver shimmering border (0.004 thick) ────────────────────────
-  bool onBorder = (uv.x < uBox.x + 0.004 || uv.x > uBox.z - 0.004
-                || uv.y < uBox.y + 0.004 || uv.y > uBox.w - 0.004);
+  // ── STEP 5 — Silver shimmering border ────────────────────────────────────────
+  bool onBorder = false;
+  
+  if (uMode > 0.5) {
+    if (abs(uv.x - leftX) < 0.004 || abs(uv.x - rightX) < 0.004 ||
+        abs(uv.y - bottomY) < 0.004 || abs(uv.y - topY) < 0.004) {
+      onBorder = true;
+    }
+    float y1 = mix(bottomY, topY, 0.3333);
+    float y2 = mix(bottomY, topY, 0.6666);
+    if (abs(uv.y - y1) < 0.004 || abs(uv.y - y2) < 0.004) {
+      onBorder = true;
+    }
+  } else {
+    onBorder = (uv.x < uBox.x + 0.004 || uv.x > uBox.z - 0.004
+             || uv.y < uBox.y + 0.004 || uv.y > uBox.w - 0.004);
+  }
 
   if (onBorder) {
-    // Soft silver-white border with a slow breathing pulse
     float pulse = 0.6 + 0.4 * sin(uTime * 1.2);
-    // Very subtle position-based variation — not rainbow, just depth
     float positionalShimmer = 0.08 * sin(uv.x * 12.0 + uTime * 0.8) * cos(uv.y * 12.0 - uTime * 0.6);
     float brightness = pulse + positionalShimmer;
     vec3 borderColor = vec3(brightness * 0.92, brightness * 0.94, brightness);
-    // The border is slightly blue-white — cold, clean, premium
     gl_FragColor = vec4(borderColor, 1.0);
     return;
   }
 
-  // ── STEP 6 — Effect selection (no texture2D calls below this line) ───────────
-
-  // ── Effect 0 — Burning Inferno ───────────────────────────────────────────────
-  if (uEffect < 0.5) {
-    float flickerLum = dispLum * (0.85 + snoise(uv * 10.0 + uTime) * 0.15);
-    gl_FragColor = vec4(fireGradient(flickerLum), 1.0);
+  // ── STEP 6 — Effect selection ────────────────────────────────────────────────
+  float activeEffect = uEffect;
+  
+  if (uMode > 0.5) {
+    if (sliceY > 0.6666) {
+      activeEffect = uEffect;
+    } else if (sliceY > 0.3333) {
+      activeEffect = 6.0; // Ghost Glass
+    } else {
+      activeEffect = mod(uEffect + 1.0, 8.0);
+    }
   }
 
-  // ── Effect 1 — Neon Silhouette ───────────────────────────────────────────────
-  else if (uEffect < 1.5) {
+  // Effect 0 — Neon
+  if (activeEffect < 0.5) {
     float b    = pow(lum, 1.2) * 1.5;
     float n    = snoise(uv * 200.0 + uTime * 0.5) * 0.15;
     float core = smoothstep(0.5 + n, 0.7 + n, b);
@@ -187,15 +247,13 @@ void main() {
           col  = mix(col, vec3(1.0), core);
     gl_FragColor = vec4(col, 1.0);
   }
-
-  // ── Effect 2 — Thermal Vision ────────────────────────────────────────────────
-  else if (uEffect < 2.5) {
+  // Effect 1 — Thermal
+  else if (activeEffect < 1.5) {
     float tv = clamp((lum - 0.1) * 1.2, 0.0, 1.0);
     gl_FragColor = vec4(thermalGradient(tv), 1.0);
   }
-
-  // ── Effect 3 — Matrix Dots ───────────────────────────────────────────────────
-  else if (uEffect < 3.5) {
+  // Effect 2 — Matrix
+  else if (activeEffect < 2.5) {
     float pl      = getLuma(pixelSample.rgb);
     vec2  cellUv  = fract(uv * vec2(cols, cols / aspect));
     float d       = distance(cellUv, vec2(0.5));
@@ -205,44 +263,60 @@ void main() {
                    : vec3(0.0, 0.08, 0.0);
     gl_FragColor = vec4(matColor, 1.0);
   }
-
-  // ── Effect 4 — Glitch Signal ─────────────────────────────────────────────────
-  else if (uEffect < 4.5) {
+  // Effect 3 — Glitch
+  else if (activeEffect < 3.5) {
     vec3  glitch    = vec3(rSample.r, gSample.g, bSample.b);
           glitch   -= sin(uv.y * 800.0 + uTime * 10.0) * 0.04;
     float tearCheck = step(0.95, fract(uTime * 2.0)) * step(abs(uv.y - 0.5), 0.01);
           glitch    = mix(glitch, 1.0 - glitch, tearCheck);
     gl_FragColor = vec4(clamp(glitch, 0.0, 1.0), 1.0);
   }
-
-  // ── Effect 5 — Neon Edges / Sobel ────────────────────────────────────────────
-  else if (uEffect < 5.5) {
+  // Effect 4 — Edges
+  else if (activeEffect < 4.5) {
     float l00 = getLuma(s00.rgb), l10 = getLuma(s10.rgb), l20 = getLuma(s20.rgb);
     float l01 = getLuma(s01.rgb), l21 = getLuma(s21.rgb);
     float l02 = getLuma(s02.rgb), l12 = getLuma(s12.rgb), l22 = getLuma(s22.rgb);
-
     float Gx = -l00 - 2.0*l01 - l02 + l20 + 2.0*l21 + l22;
     float Gy = -l00 - 2.0*l10 - l20 + l02 + 2.0*l12 + l22;
-
     float edge      = clamp(sqrt(Gx*Gx + Gy*Gy) * 3.0, 0.0, 1.0);
     vec3  edgeColor = vec3(0.1, 1.0, 0.8) * edge * 2.5 + base.rgb * 0.3;
     gl_FragColor = vec4(edgeColor, 1.0);
   }
-
-  // ── Effect 6 — Constellation Pulse ───────────────────────────────────────────
-  else {
-    vec2  boxCenter    = (uBox.xy + uBox.zw) * 0.5;
+  // Effect 5 — Constellation
+  else if (activeEffect < 5.5) {
+    vec2  boxCenter    = (uQuadTop.xy + uQuadTop.zw + uQuadBottom.xy + uQuadBottom.zw) * 0.25;
     float distToCenter = distance(uv, boxCenter);
     float pulse        = 0.5 + 0.5 * sin(uTime * 3.0);
     float glow         = smoothstep(0.4, 0.0, distToCenter) * pulse * 0.4;
-
     vec3 tinted = mix(base.rgb, vec3(0.03, 0.0, 0.15), 0.65);
     tinted += vec3(0.25, 0.08, 1.0) * glow;
     tinted += vec3(0.0, 0.45, 1.0) * sin(uv.x * 40.0 - uTime * 5.0) * 0.03;
-
     float spark = pow(lum, 4.0) * (0.5 + 0.5 * snoise(uv * 30.0 + uTime));
     tinted += vec3(0.55, 0.75, 1.0) * spark;
-
     gl_FragColor = vec4(clamp(tinted, 0.0, 1.0), 1.0);
+  }
+  // Effect 6 — Glass
+  else if (activeEffect < 6.5) {
+    float l00 = getLuma(s00.rgb), l10 = getLuma(s10.rgb), l20 = getLuma(s20.rgb);
+    float l01 = getLuma(s01.rgb), l21 = getLuma(s21.rgb);
+    float l02 = getLuma(s02.rgb), l12 = getLuma(s12.rgb), l22 = getLuma(s22.rgb);
+    float Gx = -l00 - 2.0*l01 - l02 + l20 + 2.0*l21 + l22;
+    float Gy = -l00 - 2.0*l10 - l20 + l02 + 2.0*l12 + l22;
+    float edgeMag = sqrt(Gx*Gx + Gy*Gy);
+    vec2 glassDisp = vec2(Gx, Gy) * 0.1;
+    float ghostLuma = getLuma(dispSample.rgb);
+    vec3 spectralColor = vec3(0.8, 0.9, 1.0) * (1.0 - ghostLuma) * 0.7;
+    float dispR = base.r + glassDisp.x * 0.5;
+    float dispB = base.b - glassDisp.y * 0.5;
+    vec3 glassColor = vec3(dispR, ghostLuma, dispB) * 0.6 + spectralColor;
+    glassColor += vec3(0.3, 0.8, 1.0) * edgeMag * 1.5;
+    float grain = snoise(uv * 100.0 + uTime * 2.0) * 0.05;
+    glassColor += grain;
+    gl_FragColor = vec4(clamp(glassColor, 0.0, 1.0), 1.0);
+  }
+  // Effect 7 — Inferno
+  else {
+    float flickerLum = dispLum * (0.85 + snoise(uv * 10.0 + uTime) * 0.15);
+    gl_FragColor = vec4(fireGradient(flickerLum), 1.0);
   }
 }
