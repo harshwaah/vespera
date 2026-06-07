@@ -2,7 +2,9 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import IntroScreen    from './components/IntroScreen';
 import EffectsCanvas  from './components/EffectsCanvas';
 import OverlayCanvas  from './components/OverlayCanvas';
+import FlowerCanvas   from './components/flowers/FlowerCanvas';
 import { useHandTracker } from './hooks/useHandTracker';
+import { EXPERIENCES, type ExperienceId } from './system/ExperienceRegistry';
 import type { BoxCoords, HandData } from './types';
 
 // ─── VESPERA — Root Application ───────────────────────────────────────────────
@@ -16,6 +18,8 @@ export default function App() {
   const [effectIndex,   setEffectIndex]   = useState(0);
   const [showHelp,      setShowHelp]      = useState(true);
   const [isTripleMode,  setIsTripleMode]  = useState(false);
+  const [experienceMode, setExperienceMode] = useState<ExperienceId>('effects');
+  const [hasVisitedFlowers, setHasVisitedFlowers] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const boxRef          = useRef<BoxCoords>([0, 0, 0, 0]);
@@ -23,6 +27,7 @@ export default function App() {
   const handsRef        = useRef<HandData[]>([]);
   const videoRef        = useRef<HTMLVideoElement>(null);
   const pinchCooldownRef = useRef<boolean>(false);
+  const pinchDistancesRef = useRef<[number, number]>([1, 1]);
 
   // ── Hand tracker ───────────────────────────────────────────────────────────
   const { initTracker } = useHandTracker({
@@ -35,6 +40,7 @@ export default function App() {
     setModelsReady,
     setErrorMsg,
     setEffectIndex,
+    pinchDistancesRef,
   });
 
   // ── Start tracker once intro completes ─────────────────────────────────────
@@ -77,10 +83,13 @@ export default function App() {
           position: 'fixed',
           top: 0, left: 0,
           width: '100vw', height: '100vh',
-          opacity: 0,
+          opacity: experienceMode === 'flowers' ? 1 : 0,
+          filter: experienceMode === 'flowers' ? 'saturate(1.2) contrast(1.1) brightness(0.6)' : 'none',
+          transform: 'scaleX(-1)',
           pointerEvents: 'none',
           objectFit: 'cover',
-          zIndex: 0
+          zIndex: 0,
+          transition: 'opacity 1s ease, filter 1s ease'
         }}
         aria-hidden="true"
       />
@@ -157,13 +166,54 @@ export default function App() {
       {/* ── Active canvas layers ───────────────────────────────────────────── */}
       {isActive && (
         <>
-          <EffectsCanvas
-            videoRef={videoRef}
-            boxRef={boxRef}
-            quadRef={quadRef}
-            effectIndex={effectIndex}
-            isTripleMode={isTripleMode}
-          />
+          {/* Top Level Navigation */}
+          <div style={{
+            position: 'absolute',
+            top: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 40,
+            display: 'flex',
+            gap: '32px',
+            fontFamily: 'monospace',
+            letterSpacing: '0.2em',
+            fontSize: '11px',
+          }}>
+            {EXPERIENCES.map((exp) => (
+              <button
+                key={exp.id}
+                onClick={() => {
+                  setExperienceMode(exp.id);
+                  if (exp.id === 'flowers') setHasVisitedFlowers(true);
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: experienceMode === exp.id ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)',
+                  cursor: 'pointer',
+                  padding: '8px 0',
+                  borderBottom: experienceMode === exp.id ? '1px solid rgba(255,255,255,0.5)' : '1px solid transparent',
+                  transition: 'all 0.3s ease',
+                  textShadow: exp.id === 'flowers' && !hasVisitedFlowers ? '0 0 8px rgba(255,180,180,0.5)' : 'none',
+                }}
+              >
+                {exp.label} {exp.id === 'flowers' && !hasVisitedFlowers && '✦'}
+              </button>
+            ))}
+          </div>
+
+          {experienceMode === 'effects' ? (
+            <EffectsCanvas
+              videoRef={videoRef}
+              boxRef={boxRef}
+              quadRef={quadRef}
+              effectIndex={effectIndex}
+              isTripleMode={isTripleMode}
+            />
+          ) : (
+            <FlowerCanvas pinchDistancesRef={pinchDistancesRef} />
+          )}
+
           <OverlayCanvas
             handsRef={handsRef}
             videoRef={videoRef}
@@ -202,39 +252,51 @@ export default function App() {
                   whiteSpace: 'nowrap',
                 }}
               >
-                <span>Raise your hands</span>
-                <span style={{ margin: '0 12px', opacity: 0.2 }}>|</span>
-                <span>Pinch to switch effects</span>
+                {experienceMode === 'effects' ? (
+                  <>
+                    <span>Raise your hands</span>
+                    <span style={{ margin: '0 12px', opacity: 0.2 }}>|</span>
+                    <span>Pinch to switch effects</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Grow stem with left hand</span>
+                    <span style={{ margin: '0 12px', opacity: 0.2 }}>|</span>
+                    <span>Open petals with right hand</span>
+                  </>
+                )}
               </div>
             )}
             
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-              <button
-                onClick={() => setIsTripleMode(!isTripleMode)}
-                style={{
-                  background: 'rgba(0, 0, 0, 0.2)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: isTripleMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.5)',
-                  padding: '8px 16px',
-                  borderRadius: '20px',
-                  fontSize: '10px',
-                  cursor: 'pointer',
-                  letterSpacing: '0.15em',
-                  textTransform: 'uppercase',
-                  backdropFilter: 'blur(4px)',
-                  transition: 'all 0.3s ease',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.color = 'rgba(255, 255, 255, 1)';
-                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.4)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.color = isTripleMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.5)';
-                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.2)';
-                }}
-              >
-                {isTripleMode ? 'Spotlight' : '3 Frames'}
-              </button>
+              {experienceMode === 'effects' && (
+                <button
+                  onClick={() => setIsTripleMode(!isTripleMode)}
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: isTripleMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.5)',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                    letterSpacing: '0.15em',
+                    textTransform: 'uppercase',
+                    backdropFilter: 'blur(4px)',
+                    transition: 'all 0.3s ease',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.color = 'rgba(255, 255, 255, 1)';
+                    e.currentTarget.style.background = 'rgba(0, 0, 0, 0.4)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.color = isTripleMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.5)';
+                    e.currentTarget.style.background = 'rgba(0, 0, 0, 0.2)';
+                  }}
+                >
+                  {isTripleMode ? 'Spotlight' : '3 Frames'}
+                </button>
+              )}
 
               <button
                 onClick={() => setShowHelp(!showHelp)}

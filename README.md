@@ -13,13 +13,20 @@ Built with **React Three Fiber**, **GLSL**, and **MediaPipe**.
 
 ## ✦ The Interaction 
 
-Raise your hands to create a viewport. The space between your palms becomes an interactive shader canvas. Your hands are rendered as minimal skeletal overlays, while the surrounding environment gently desaturates to focus on the effect.
+Raise your hands to create a viewport. The space between your palms becomes an interactive canvas. Your hands are rendered as minimal skeletal overlays.
 
-Pinch your thumb and index finger to cycle through different visual effects.
+The instrument currently supports two primary experiences:
 
-You can view the canvas as a single unified effect (Spotlight mode), or divided into three distinct horizontal slices (3 Frames mode).
+### 1. Effects
+A 2D realtime shader viewport bounded by your hands. Pinch your thumb and index finger to cycle through different visual effects. You can view the canvas as a single unified effect (Spotlight mode), or divided into three distinct horizontal slices (3 Frames mode).
 
-### The Effects
+### 2. Flowers
+A hybrid 3D botanical sculpture that grows and blooms based on your continuous gestures. 
+- Your **Left Hand** controls the stem growth.
+- Your **Right Hand** controls the petals blooming.
+The camera feed dynamically adjusts its contrast and saturation to create a cinematic backdrop for the physical artwork.
+
+### The 2D Effects
 1. **Inferno** — Noise-displaced fire gradient.
 2. **Neon** — High-contrast cyan glow.
 3. **Thermal** — Intense heat-map color ramp.
@@ -34,8 +41,9 @@ You can view the canvas as a single unified effect (Spotlight mode), or divided 
 ## ✦ Architecture
 
 - **React 18 & TypeScript**: Core application and state management.
-- **R3F & Three.js**: Canvas orchestration and fragment shader uniforms.
-- **GLSL Shaders**: Highly optimized fragment pipeline, utilizing simplex noise, Sobel operators, and matrix convolutions in a single pass.
+- **R3F & Three.js**: Canvas orchestration, 3D instanced rendering (Flowers mode), and fragment shader uniforms.
+- **@react-three/drei**: Cinematic environment HDRI lighting and post-processing tools.
+- **GLSL Shaders**: Highly optimized fragment pipeline, utilizing simplex noise, Sobel operators, and matrix convolutions in a single pass (Effects mode).
 - **MediaPipe Tasks Vision**: Real-time hand landmark tracking at 30fps with automatic hardware-accelerated GPU delegates.
 - **Tailwind CSS**: Structural UI and typography.
 
@@ -64,8 +72,11 @@ Open `http://localhost:5173` in a modern browser.
 
 ## ✦ Technical Highlights
 
-### Single-Pass Composite Shader
+### Single-Pass Composite Shader (Effects)
 Rather than computing visual effects via costly post-processing passes, Vespera determines inside/outside bounding boxes dynamically on the fragment scale. It routes UV coordinates through conditional effect pipelines with precomputed luminance values to maintain peak performance on low-end hardware.
+
+### Procedural 3D Botanicals (Flowers)
+The Flower Showcase implements a hybrid rendering pipeline utilizing `CatmullRomCurve3` for responsive procedural stem generation and `InstancedMesh` for performant, organically easing petals. Translucent `MeshPhysicalMaterial` interacting with studio HDRIs creates a cinematic, believable aesthetic over the live camera feed.
 
 ### Contextual Aesthetic
 Vespera relies entirely on cinematic minimalism. Interfaces are rendered like museum plaques. Interactions operate exclusively off gesture recognition algorithms processing Euclidean distance between specific MediaPipe nodes (e.g., pinching `INDEX_FINGER_TIP` and `THUMB_TIP`).

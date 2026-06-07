@@ -3,7 +3,11 @@
 This file serves as the single source of truth for coding agents, AI models, and future human contributors working on Vespera.
 
 ## 1. Overview
-Vespera is a realtime gesture-powered visual instrument. It is not a traditional camera filter app. Instead, it turns the tracked region between a user's hands into a realtime shader viewport where dynamic, generative effects are rendered. The physical bounds of the user's hands define the digital canvas.
+Vespera is a realtime gesture-powered visual instrument. It turns the tracked region between a user's hands into a realtime shader viewport or a 3D generative environment. The physical bounds of the user's hands define the digital canvas.
+
+It supports multiple experiences managed via an `ExperienceRegistry`. Currently:
+- **Effects:** 2D Fragment shader effects driven by bounding boxes.
+- **Flowers:** A hybrid 3D botanical scene driven by procedural geometry and pinch distance interpolation.
 
 ## 2. Tech Stack
 - **Framework:** React 18
@@ -22,22 +26,35 @@ The fragment shader uses the `uBox` uniform (calculated from MediaPipe) to deter
 - Pixels *outside* the box are rendered as desaturated grayscale.
 - Pixels *inside* the box run complex generative effect math.
 
+3. **Hybrid 3D Pipeline (Flowers Mode):** Uses `@react-three/drei` and standard Three.js primitives to render procedural geometry (`Stem` via `CatmullRomCurve3`) and instanced geometry (`Bloom` via `InstancedMesh`). The webcam feed is passed through via a transparent WebGL canvas and styled with CSS filters.
+
 ## 4. Gesture System
 Tracking is handled in `src/hooks/useHandTracker.ts`.
 - **Initialization:** MediaPipe's `HandLandmarker` is loaded via WASM.
 - **Bounding Box:** The bounding box logic finds the outermost edges of the hands to form the interactive region.
-- **Pinch Gesture:** Detecting a pinch between the thumb and index finger triggers an effect switch (`setEffectIndex`).
+- **Pinch Gestures:** 
+  - For discrete events (Effects mode), a quick pinch triggers an effect switch (`setEffectIndex`).
+  - For continuous events (Flowers mode), the raw distance between thumb and index finger is exported as a `[left, right]` tuple via `pinchDistancesRef`.
 
 ## 5. State Architecture
 - **Global UI State:** Managed in `src/App.tsx`. Includes loading states, error states, and the currently selected effect index.
 - **Performance State:** Bounding box coordinates (`boxRef`) and hand landmark data (`handsRef`) are stored in React `useRef` to avoid unnecessary re-renders. They are updated continuously in the `requestAnimationFrame` loop.
 - **Shader Uniforms:** Updated every frame via `@react-three/fiber`'s `useFrame` hook in `EffectsCanvas.tsx`.
 
-## 6. Effect System
+## 6. Effect & Experience System
+The application is governed by `ExperienceRegistry.ts`, which allows scalable addition of new showcases.
+
+**Effects Mode**
 Effects are defined purely in math within `fragment.glsl`.
 - Effects are routed based on the `uEffect` uniform (or `activeEffect` in GLSL).
 - **Single Mode:** The entire bounding box renders one effect.
 - **Triple Frame Mode (`uMode == 1.0`):** The bounding box is sliced horizontally into three independent strips. The top strip uses Ghost Glass, the middle uses the current user-selected effect, and the bottom uses Thermal Vision.
+
+**Flowers Mode**
+A 3D generative system driven by continuous hand tracking.
+- `FlowerConfig.ts` controls Species, Palette, Behavior, and Placement.
+- The `Stem` maps left-hand pinch distance to procedural tube growth.
+- The `Bloom` maps right-hand pinch distance to instanced petal rotation.
 
 ## 7. Design Language
 Vespera adheres to a **cinematic minimalism** design language.
@@ -58,8 +75,13 @@ Vespera adheres to a **cinematic minimalism** design language.
 - **Shader Organization:** Keep helper functions at the top, pre-sampling in the middle, and effect routing at the bottom.
 - **Component Boundaries:** Separation of concerns. `App.tsx` handles UI/State. `EffectsCanvas.tsx` handles Three.js. `OverlayCanvas.tsx` handles 2D hand skeleton rendering.
 
-## 10. Future Expansion Notes
-To add a new effect:
+## 10. Extensibility & Future Expansion
+**Adding a new 2D Effect:**
 1. Update `EFFECT_NAMES` array in `EffectsCanvas.tsx`.
 2. Add a new `else if (activeEffect < X.5)` block in `fragment.glsl`.
 3. Keep the math performant and ensure it plays well with the Triple Frame slicing.
+
+**Adding a new 3D Experience:**
+1. Register it in `src/system/ExperienceRegistry.ts`.
+2. Add conditional rendering for its canvas in `App.tsx`.
+3. If it requires new tracking data, expose it through `useHandTracker.ts` using `useRef` to avoid React re-renders.

@@ -27,6 +27,7 @@ interface UseHandTrackerArgs {
   setModelsReady: (v: boolean) => void;
   setErrorMsg: (msg: string) => void;
   setEffectIndex: React.Dispatch<React.SetStateAction<number>>;
+  pinchDistancesRef: React.MutableRefObject<[number, number]>; // [left, right]
 }
 
 interface UseHandTrackerReturn {
@@ -63,6 +64,7 @@ export function useHandTracker({
   setModelsReady,
   setErrorMsg,
   setEffectIndex,
+  pinchDistancesRef,
 }: UseHandTrackerArgs): UseHandTrackerReturn {
   /** Stores the RAF id so we can cancel on cleanup. */
   const animFrameRef   = useRef<number>(0);
@@ -179,18 +181,31 @@ export function useHandTracker({
 
           // ── 3b. Gesture detection (Pinch) ──────────────────────────────
           let isPinched = false;
+          // Default to dormant state so flower shrinks gracefully when hands are lost
+          let leftDist = 0.05;
+          let rightDist = 0.05;
+
           for (const hand of hands) {
             if (hand.landmarks.length > 8) {
-              const isPinch = dist2D(
+              const pDist = dist2D(
                 hand.landmarks[4].x, hand.landmarks[4].y,
                 hand.landmarks[8].x, hand.landmarks[8].y
-              ) < PINCH_THRESHOLD;
-              if (isPinch) {
+              );
+              
+              if (hand.handedness === 'Left') {
+                leftDist = pDist;
+              } else {
+                rightDist = pDist;
+              }
+
+              if (pDist < PINCH_THRESHOLD) {
                 isPinched = true;
-                break;
+                // We don't break anymore because we want to calculate dist for both hands
               }
             }
           }
+
+          pinchDistancesRef.current = [leftDist, rightDist];
 
           if (isPinched) {
             boxRef.current = [0, 0, 0, 0];
@@ -285,6 +300,7 @@ export function useHandTracker({
     setModelsReady,
     setErrorMsg,
     setEffectIndex,
+    pinchDistancesRef,
   ]);
 
   return { initTracker };
