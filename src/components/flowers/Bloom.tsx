@@ -57,7 +57,7 @@ export default function Bloom({ config, curve, pinchDistancesRef, growthRef }: B
 
   useFrame(({ clock }, delta) => {
     const [, rightDist] = pinchDistancesRef.current;
-    const mapDist = (d: number) => THREE.MathUtils.clamp((d - 0.05) / 0.25, 0, 1);
+    const mapDist = (d: number) => THREE.MathUtils.clamp((d - 0.05) / 0.20, 0, 1);
     const targetBloom = mapDist(rightDist);
 
     // Spring physics for bloom open/close

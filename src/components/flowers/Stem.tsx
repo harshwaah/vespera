@@ -74,7 +74,7 @@ export default function Stem({ config, curve, pinchDistancesRef, onGrowthChange 
   useFrame((_, delta) => {
     // ── Growth ─────────────────────────────────────────────────────────────
     const leftDist     = pinchDistancesRef.current[0];
-    const targetGrowth = THREE.MathUtils.clamp((leftDist - 0.05) / 0.25, 0, 1);
+    const targetGrowth = THREE.MathUtils.clamp((leftDist - 0.05) / 0.20, 0, 1);
     stateRef.current.growth = THREE.MathUtils.lerp(
       stateRef.current.growth, targetGrowth, 3.5 * delta
     );

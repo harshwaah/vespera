@@ -53,8 +53,8 @@ Effects are defined purely in math within `fragment.glsl`.
 **Flowers Mode**
 A 3D generative system driven by continuous hand tracking.
 - `FlowerConfig.ts` controls Species, Palette, Behavior, and Placement.
-- The `Stem` maps left-hand pinch distance to procedural tube growth.
-- The `Bloom` maps right-hand pinch distance to instanced petal rotation.
+- The `Stem` maps left-hand pinch distance to procedural tube growth (interpolated over a range of `0.20` above the `0.05` threshold).
+- The `Bloom` maps right-hand pinch distance to instanced petal rotation (interpolated over a range of `0.20` above the `0.05` threshold).
 
 ## 7. Design Language
 Vespera adheres to a **cinematic minimalism** design language.
