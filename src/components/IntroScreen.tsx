@@ -47,10 +47,6 @@ export default function IntroScreen({ onComplete }: IntroScreenProps) {
 
   return (
     <>
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,400&display=swap"
-      />
       <style>{INTRO_STYLES}</style>
 
       <div

@@ -1,6 +1,173 @@
 /* ─── VESPERA — Global Styles ─────────────────────────────────────────────── */
 
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('/fonts/CormorantGaramond-Light.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/CormorantGaramond-Light.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/CormorantGaramond-Italic.woff2') format('woff2');
+}
+
 @import "tailwindcss";
+
+/* ── BrandMark (Persistent Brand Anchor) ──────────────────────────────────── */
+
+.brand-mark {
+  position: fixed;
+  z-index: 45;
+  pointer-events: none;
+  opacity: 0;
+  animation: brandMarkFadeIn 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes brandMarkFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.brand-mark-text {
+  color: rgba(255, 255, 255, 0.65);
+  text-transform: uppercase;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 10px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Position options with mobile safe-area support */
+.brand-mark.pos-top-left {
+  top: var(--brand-mark-top, calc(32px + env(safe-area-inset-top, 0px)));
+  left: var(--brand-mark-left, calc(40px + env(safe-area-inset-left, 0px)));
+  bottom: auto;
+  right: auto;
+}
+
+.brand-mark.pos-top-right {
+  top: var(--brand-mark-top, calc(32px + env(safe-area-inset-top, 0px)));
+  right: var(--brand-mark-right, calc(40px + env(safe-area-inset-right, 0px)));
+  bottom: auto;
+  left: auto;
+}
+
+.brand-mark.pos-bottom-left {
+  bottom: var(--brand-mark-bottom, calc(32px + env(safe-area-inset-bottom, 0px)));
+  left: var(--brand-mark-left, calc(40px + env(safe-area-inset-left, 0px)));
+  top: auto;
+  right: auto;
+}
+
+.brand-mark.pos-bottom-right {
+  bottom: var(--brand-mark-bottom, calc(32px + env(safe-area-inset-bottom, 0px)));
+  right: var(--brand-mark-right, calc(40px + env(safe-area-inset-right, 0px)));
+  top: auto;
+  left: auto;
+}
+
+/* Typography variants */
+.brand-mark.variant-serif .brand-mark-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-size: 18px;
+  letter-spacing: 0.4em;
+}
+
+.brand-mark.variant-sans .brand-mark-text {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  letter-spacing: 0.45em;
+}
+
+.brand-mark.variant-mono .brand-mark-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.35em;
+}
+
+/* Responsiveness overrides */
+@media (max-width: 768px) {
+  .brand-mark.pos-top-left {
+    top: var(--brand-mark-top, calc(24px + env(safe-area-inset-top, 0px)));
+    left: var(--brand-mark-left, calc(28px + env(safe-area-inset-left, 0px)));
+  }
+  .brand-mark.pos-top-right {
+    top: var(--brand-mark-top, calc(24px + env(safe-area-inset-top, 0px)));
+    right: var(--brand-mark-right, calc(28px + env(safe-area-inset-right, 0px)));
+  }
+  .brand-mark.pos-bottom-left {
+    bottom: var(--brand-mark-bottom, calc(24px + env(safe-area-inset-bottom, 0px)));
+    left: var(--brand-mark-left, calc(28px + env(safe-area-inset-left, 0px)));
+  }
+  .brand-mark.pos-bottom-right {
+    bottom: var(--brand-mark-bottom, calc(24px + env(safe-area-inset-bottom, 0px)));
+    right: var(--brand-mark-right, calc(28px + env(safe-area-inset-right, 0px)));
+  }
+
+  .brand-mark.variant-serif .brand-mark-text {
+    font-size: 15px;
+    letter-spacing: 0.35em;
+  }
+  .brand-mark.variant-sans .brand-mark-text {
+    font-size: 12px;
+    letter-spacing: 0.4em;
+  }
+  .brand-mark.variant-mono .brand-mark-text {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-mark.pos-top-left {
+    top: var(--brand-mark-top, calc(20px + env(safe-area-inset-top, 0px)));
+    left: var(--brand-mark-left, calc(20px + env(safe-area-inset-left, 0px)));
+  }
+  .brand-mark.pos-top-right {
+    top: var(--brand-mark-top, calc(20px + env(safe-area-inset-top, 0px)));
+    right: var(--brand-mark-right, calc(20px + env(safe-area-inset-right, 0px)));
+  }
+  .brand-mark.pos-bottom-left {
+    bottom: var(--brand-mark-bottom, calc(20px + env(safe-area-inset-bottom, 0px)));
+    left: var(--brand-mark-left, calc(20px + env(safe-area-inset-left, 0px)));
+  }
+  .brand-mark.pos-bottom-right {
+    bottom: var(--brand-mark-bottom, calc(20px + env(safe-area-inset-bottom, 0px)));
+    right: var(--brand-mark-right, calc(20px + env(safe-area-inset-right, 0px)));
+  }
+
+  .brand-mark.variant-serif .brand-mark-text {
+    font-size: 13px;
+    letter-spacing: 0.3em;
+  }
+  .brand-mark.variant-sans .brand-mark-text {
+    font-size: 11px;
+    letter-spacing: 0.35em;
+  }
+  .brand-mark.variant-mono .brand-mark-text {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+  }
+}
 
 /* ── Reset & box model ──────────────────────────────────────────────────────── */
 *, *::before, *::after {

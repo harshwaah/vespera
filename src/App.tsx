@@ -3,6 +3,7 @@ import IntroScreen    from './components/IntroScreen';
 import EffectsCanvas  from './components/EffectsCanvas';
 import OverlayCanvas  from './components/OverlayCanvas';
 import FlowerCanvas   from './components/flowers/FlowerCanvas';
+import BrandMark      from './components/BrandMark';
 import { useHandTracker } from './hooks/useHandTracker';
 import { EXPERIENCES, type ExperienceId } from './system/ExperienceRegistry';
 import type { BoxCoords, HandData } from './types';
@@ -93,6 +94,9 @@ export default function App() {
         }}
         aria-hidden="true"
       />
+
+      {/* ── Brand Mark (persistent brand anchor) ───────────────────────────── */}
+      {isActive && <BrandMark />}
 
       {/* ── Intro (auto-dismisses after 2.6 s) ────────────────────────────── */}
       {!introComplete && (
